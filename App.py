@@ -8,7 +8,7 @@ def get_db_connection():
     return mysql.connector.connect(
         host='localhost',
         user='root',
-        password='Srisql@8',
+        password=''',
         database='food_wastage'
     )
 
@@ -780,3 +780,4 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
