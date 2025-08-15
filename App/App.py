@@ -3,10 +3,10 @@ import streamlit as st
 import mysql.connector
 import plotly.express as px
 
+# ---------------- Database Connection ----------------
 def get_db_connection():
-    """Get database connection using Streamlit secrets"""
+    """Establish a database connection using Streamlit secrets."""
     try:
-        # This will now be the only method to connect, using the secrets file
         return mysql.connector.connect(
             host=st.secrets["mysql"]["host"],
             user=st.secrets["mysql"]["user"],
@@ -14,36 +14,41 @@ def get_db_connection():
             database=st.secrets["mysql"]["database"],
             port=st.secrets["mysql"]["port"]
         )
-    except Exception as e:
-        st.error(f"Error connecting to the database: {e}")
-        st.stop()
+    except mysql.connector.Error as err:
+        st.error(f"Database connection error: {err}")
+        return None
 
+# ---------------- Test Database Connection ----------------
 def test_db_connection():
-    """Test if database connection is working"""
-    try:
-        conn = mysql.connector.connect(
-            host=st.secrets["mysql"]["host"],
-            user=st.secrets["mysql"]["user"],
-            password=st.secrets["mysql"]["password"],
-            database=st.secrets["mysql"]["database"],
-            port=st.secrets["mysql"]["port"]
-        )
+    """Test if database connection is working."""
+    conn = get_db_connection()
+    if conn:
         conn.close()
         return True
-    except Exception as e:
-        st.error(f"Database connection test failed: {e}")
-        return False
+    return False
 
+# ---------------- Run SQL Query ----------------
 def run_query(query, params=None):
-    """Run a query and return a DataFrame"""
+    """Run an SQL query and return a DataFrame."""
+    conn = get_db_connection()
+    if not conn:
+        return pd.DataFrame()
+    
     try:
-        conn = get_db_connection()
         df = pd.read_sql(query, conn, params=params)
-        conn.close()
         return df
     except Exception as e:
-        st.error(f"Query Error: {e}")
+        st.error(f"Query execution failed: {e}")
         return pd.DataFrame()
+    finally:
+        conn.close()
+
+# Example usage in Streamlit
+if test_db_connection():
+    st.success("Database connection successful!")
+else:
+    st.error("Database connection failed.")
+
 
 # ---------------- CRUD Operations ----------------
 def create_record(table_name, inputs):
@@ -814,5 +819,6 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
 
 
