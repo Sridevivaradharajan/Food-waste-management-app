@@ -1,4 +1,4 @@
-#Food Wastage Management App
+# Food Wastage Management App
 
 A Streamlit-based web application that connects to a TiDB Cloud MySQL database to manage, track, and visualize food wastage data.The Food Wastage Management App is designed to help providers and receivers efficiently manage food donations, monitor expiry dates, and reduce overall wastage.The app enables CRUD operations, interactive charts, and secure cloud database connections.
 
