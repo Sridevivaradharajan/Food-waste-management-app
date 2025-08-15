@@ -167,6 +167,7 @@ def fetch_table_data(table_name):
     return run_query(query)
 
 # ---------------- Analysis Queries ----------------
+# ---------------- Analysis Queries ----------------
 def analysis_query(option, param=None):
     """Run analysis queries and return dataframe + optional figure"""
     queries = {
@@ -259,6 +260,7 @@ def analysis_query(option, param=None):
             GROUP BY p.Provider_ID
             ORDER BY Total_Quantity_Donated DESC;
         """,
+        # ----------------- New Queries -----------------
         "Top Cities by Claimed Food Quantity": """
             SELECT p.City, SUM(f.Quantity) AS Total_Claimed
             FROM Providers p
@@ -291,12 +293,12 @@ def analysis_query(option, param=None):
         df, x='City', y=['Providers_Count','Receivers_Count'], 
         barmode='group', 
         title="Number of Providers and Receivers by City",
-        color_discrete_sequence=px.colors.qualitative.Pastel
+        color_discrete_sequence=px.colors.qualitative.Pastel  # Multiple pastel colors
     ),
     "Top Food Provider Type by Quantity": lambda df: px.bar(
         df, x='Type', y='Total_Quantity', 
         title="Top Food Provider Types by Quantity",
-        color='Type',
+        color='Type',  # Assign color per category
         color_discrete_sequence=px.colors.qualitative.Set2
     ),
     "Top Receivers by Claimed Food": lambda df: px.bar(
@@ -367,7 +369,7 @@ def analysis_query(option, param=None):
         return df, fig
 
     return None, None
-
+    
 # ---------------- Streamlit UI ----------------
 st.set_page_config(page_title="Food Wastage Management System", layout="wide")
 
@@ -818,6 +820,7 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
 
 
 
