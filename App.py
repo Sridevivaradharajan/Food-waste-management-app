@@ -5,77 +5,114 @@ import plotly.express as px
 
 # ---------------- Database Connection ----------------
 def get_db_connection():
-    return mysql.connector.connect(
-        host='localhost',
-        user='root',
-        password=''',
-        database='food_wastage'
-    )
+    """Get database connection using Streamlit secrets or fallback to local"""
+    try:
+        # Try to use Streamlit secrets for production
+        return mysql.connector.connect(
+            host=st.secrets["mysql"]["host"],
+            user=st.secrets["mysql"]["user"], 
+            password=st.secrets["mysql"]["password"],
+            database=st.secrets["mysql"]["database"],
+            port=st.secrets["mysql"].get("port", 3306)
+        )
+    except (KeyError, FileNotFoundError):
+        # Fallback to local development (you can remove this for production)
+        try:
+            return mysql.connector.connect(
+                host='localhost',
+                user='root',
+                password='Srisql@8',
+                database='food_wastage'
+            )
+        except mysql.connector.Error as e:
+            st.error(f"Database connection failed: {e}")
+            st.info("Please configure your database connection in Streamlit secrets.")
+            st.stop()
+
+def test_db_connection():
+    """Test if database connection is working"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Database connection test failed: {e}")
+        return False
 
 def run_query(query, params=None):
     """Run a query and return a DataFrame"""
     try:
         conn = get_db_connection()
         df = pd.read_sql(query, conn, params=params)
+        conn.close()
         return df
     except Exception as e:
         st.error(f"Query Error: {e}")
         return pd.DataFrame()
-    finally:
-        conn.close()
 
 # ---------------- CRUD Operations ----------------
 def create_record(table_name, inputs):
     """Generic create function for any table"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Filter out empty values
-    filtered_inputs = {k: v for k, v in inputs.items() if v not in [None, "", 0]}
-    
-    columns = ", ".join(filtered_inputs.keys())
-    placeholders = ", ".join(["%s"] * len(filtered_inputs))
-    values = tuple(filtered_inputs.values())
-    
-    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-    
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Filter out empty values
+        filtered_inputs = {k: v for k, v in inputs.items() if v not in [None, "", 0]}
+        
+        if not filtered_inputs:
+            st.warning("No data to insert")
+            return
+            
+        columns = ", ".join(filtered_inputs.keys())
+        placeholders = ", ".join(["%s"] * len(filtered_inputs))
+        values = tuple(filtered_inputs.values())
+        
+        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+        
         cursor.execute(query, values)
         conn.commit()
         st.success(f"Record created successfully in {table_name}")
     except mysql.connector.Error as e:
         st.error(f"Error creating record: {e}")
+    except Exception as e:
+        st.error(f"Unexpected error: {e}")
     finally:
-        cursor.close()
-        conn.close()
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
 
 def update_record(table_name, record_id, inputs):
     """Generic update function for any table"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Get primary key for the table
-    primary_keys = {
-        "Food_Listings": "Food_ID",
-        "Providers": "Provider_ID", 
-        "Receivers": "Receiver_ID",
-        "Claims": "Claim_ID"
-    }
-    pk = primary_keys[table_name]
-    
-    # Filter out empty values
-    filtered_inputs = {k: v for k, v in inputs.items() if v not in [None, "", 0]}
-    
-    if not filtered_inputs:
-        st.warning("No fields to update")
-        return
-    
-    set_clause = ", ".join([f"{k}=%s" for k in filtered_inputs.keys()])
-    values = list(filtered_inputs.values()) + [record_id]
-    
-    query = f"UPDATE {table_name} SET {set_clause} WHERE {pk}=%s"
-    
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get primary key for the table
+        primary_keys = {
+            "Food_Listings": "Food_ID",
+            "Providers": "Provider_ID", 
+            "Receivers": "Receiver_ID",
+            "Claims": "Claim_ID"
+        }
+        pk = primary_keys[table_name]
+        
+        # Filter out empty values
+        filtered_inputs = {k: v for k, v in inputs.items() if v not in [None, "", 0]}
+        
+        if not filtered_inputs:
+            st.warning("No fields to update")
+            return
+        
+        set_clause = ", ".join([f"{k}=%s" for k in filtered_inputs.keys()])
+        values = list(filtered_inputs.values()) + [record_id]
+        
+        query = f"UPDATE {table_name} SET {set_clause} WHERE {pk}=%s"
+        
         cursor.execute(query, values)
         conn.commit()
         if cursor.rowcount > 0:
@@ -84,25 +121,29 @@ def update_record(table_name, record_id, inputs):
             st.warning(f"No record found with {pk} = {record_id}")
     except mysql.connector.Error as e:
         st.error(f"Error updating record: {e}")
+    except Exception as e:
+        st.error(f"Unexpected error: {e}")
     finally:
-        cursor.close()
-        conn.close()
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
 
 def delete_record(table_name, record_id):
     """Generic delete function for any table"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Get primary key for the table
-    primary_keys = {
-        "Food_Listings": "Food_ID",
-        "Providers": "Provider_ID",
-        "Receivers": "Receiver_ID", 
-        "Claims": "Claim_ID"
-    }
-    pk = primary_keys[table_name]
-    
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get primary key for the table
+        primary_keys = {
+            "Food_Listings": "Food_ID",
+            "Providers": "Provider_ID",
+            "Receivers": "Receiver_ID", 
+            "Claims": "Claim_ID"
+        }
+        pk = primary_keys[table_name]
+        
         # Handle foreign key constraints for Food_Listings
         if table_name == "Food_Listings":
             cursor.execute("DELETE FROM Claims WHERE Food_ID=%s", (record_id,))
@@ -116,16 +157,19 @@ def delete_record(table_name, record_id):
             st.warning(f"No record found with {pk} = {record_id}")
     except mysql.connector.Error as e:
         st.error(f"Error deleting record: {e}")
+    except Exception as e:
+        st.error(f"Unexpected error: {e}")
     finally:
-        cursor.close()
-        conn.close()
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
 
 # ---------------- Fetch Table Data ----------------
 def fetch_table_data(table_name):
     query = f"SELECT * FROM {table_name}"
     return run_query(query)
 
-# ---------------- Analysis Queries ----------------
 # ---------------- Analysis Queries ----------------
 def analysis_query(option, param=None):
     """Run analysis queries and return dataframe + optional figure"""
@@ -219,7 +263,6 @@ def analysis_query(option, param=None):
             GROUP BY p.Provider_ID
             ORDER BY Total_Quantity_Donated DESC;
         """,
-        # ----------------- New Queries -----------------
         "Top Cities by Claimed Food Quantity": """
             SELECT p.City, SUM(f.Quantity) AS Total_Claimed
             FROM Providers p
@@ -252,12 +295,12 @@ def analysis_query(option, param=None):
         df, x='City', y=['Providers_Count','Receivers_Count'], 
         barmode='group', 
         title="Number of Providers and Receivers by City",
-        color_discrete_sequence=px.colors.qualitative.Pastel  # Multiple pastel colors
+        color_discrete_sequence=px.colors.qualitative.Pastel
     ),
     "Top Food Provider Type by Quantity": lambda df: px.bar(
         df, x='Type', y='Total_Quantity', 
         title="Top Food Provider Types by Quantity",
-        color='Type',  # Assign color per category
+        color='Type',
         color_discrete_sequence=px.colors.qualitative.Set2
     ),
     "Top Receivers by Claimed Food": lambda df: px.bar(
@@ -329,7 +372,6 @@ def analysis_query(option, param=None):
 
     return None, None
 
-
 # ---------------- Streamlit UI ----------------
 st.set_page_config(page_title="Food Wastage Management System", layout="wide")
 
@@ -337,6 +379,16 @@ st.set_page_config(page_title="Food Wastage Management System", layout="wide")
 def centered_header(text, level=1, emoji=""):
     st.markdown(f"<h{level} style='text-align:center;'>{emoji} {text}</h{level}>", unsafe_allow_html=True)
 
+# Check database connection at startup
+if not test_db_connection():
+    st.error("Cannot connect to database. Please check your configuration.")
+    st.info("""
+    **For Streamlit Cloud deployment, you need to:**
+    1. Set up a cloud MySQL database (e.g., PlanetScale, Railway, or AWS RDS)
+    2. Configure secrets in Streamlit Cloud with your database credentials
+    3. Make sure your database tables are created and populated
+    """)
+    st.stop()
 
 # Consolidated CSS styling
 st.markdown("""
@@ -430,7 +482,6 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 
 # ---------------- Tab 1: Introduction ----------------
 with tab1:
-    # Simple approach without complex HTML
     centered_header("Welcome to Food Wastage Management System")
     
     st.write("""
@@ -439,7 +490,6 @@ with tab1:
     
     st.subheader("**Key Features**")
     
-    # Using Streamlit columns instead of HTML grid
     col1, col2 = st.columns(2)
     
     with col1:
@@ -462,16 +512,14 @@ with tab2:
         
         filtered_df = df.copy()
         
-        # --- Create and display filters based on data type ---
-        
-        # Separate columns for object (text) and number filters to maintain alignment
+        # Separate columns for object (text) and number filters
         obj_cols = [col for col in df.columns if df[col].dtype == "object"]
         if obj_cols:
             st.markdown("### Text Filters")
             text_filter_cols = st.columns(3)
             for i, col in enumerate(obj_cols):
                 with text_filter_cols[i % 3]:
-                    val = st.text_input(f"🔍 Filter {col}", key=f"{table_name}_{col}")
+                    val = st.text_input(f"Filter {col}", key=f"{table_name}_{col}")
                     if val:
                         filtered_df = filtered_df[filtered_df[col].str.contains(val, case=False, na=False)]
         
@@ -483,7 +531,7 @@ with tab2:
                 with num_filter_cols[i % 3]:
                     min_val, max_val = int(df[col].min()), int(df[col].max())
                     if min_val != max_val:
-                        range_val = st.slider(f"📊 {col} Range", min_val, max_val, (min_val, max_val), key=f"{table_name}_{col}")
+                        range_val = st.slider(f"{col} Range", min_val, max_val, (min_val, max_val), key=f"{table_name}_{col}")
                         filtered_df = filtered_df[(filtered_df[col] >= range_val[0]) & (filtered_df[col] <= range_val[1])]
 
         # Display results
@@ -491,7 +539,6 @@ with tab2:
         st.dataframe(filtered_df, use_container_width=True, height=400)
     else:
         st.info(f"No data available in {table_name} table.")
-
 
 # ---------------- Tab 3: CRUD Operations ----------------
 with tab3:
@@ -521,7 +568,7 @@ with tab3:
     fields = table_fields[table_name]
     pk = primary_keys[table_name]
 
-    # Add CSS once for all buttons in tab3
+    # Add CSS for CRUD buttons
     st.markdown(
         """
         <style>
@@ -596,13 +643,13 @@ with tab3:
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-#----------------- Tab 4:Queries --------------
+# ---------------- Tab 4: SQL Playground ----------------
 with tab4:
     st.markdown("""
     <style>
     div.stButton > button:first-child {
-        background-color: #dff0d8;  /* st.success background color */
-        color: #3c763d;             /* st.success text color */
+        background-color: #dff0d8;
+        color: #3c763d;
         border-radius: 8px;
         height: 3em;
         width: 100%;
@@ -632,7 +679,6 @@ with tab4:
         else:
             with st.spinner("Executing query..."):
                 try:
-                    # Run the user's SQL query
                     df = run_query(user_query)
                     
                     if df is not None and not df.empty:
@@ -640,7 +686,7 @@ with tab4:
                         st.dataframe(df, use_container_width=True)
                         
                         # Visualization
-                        if chart_type != "None":
+                        if chart_type != "None" and len(df.columns) >= 2:
                             if chart_type == "Bar":
                                 st.plotly_chart(px.bar(df, x=df.columns[0], y=df.columns[1],
                                                        title="Bar Chart", color=df.columns[0],
@@ -654,7 +700,6 @@ with tab4:
                             elif chart_type == "Line":
                                 st.plotly_chart(px.line(df, x=df.columns[0], y=df.columns[1],
                                                         title="Line Chart",
-                                                        color=df.columns[0],
                                                         color_discrete_sequence=px.colors.qualitative.Set2),
                                                use_container_width=True)
                     else:
@@ -662,31 +707,29 @@ with tab4:
                 except Exception as e:
                     st.error(f"Error executing query: {e}")
 
-
-# ---------------- Tab 5: SQL Queries & Analysis ----------------
+# ---------------- Tab 5: Data Analysis ----------------
 with tab5:
     st.markdown("""
     <style>
     div.stButton > button:first-child {
-        background-color: #d9edf7;  /* st.info background color */
-        color: #31708f;             /* st.info text color */
+        background-color: #d9edf7;
+        color: #31708f;
         border-radius: 8px;
         height: 3em;
         width: 100%;
         font-size: 16px;
         font-weight: bold;
-        border: 1px solid #bce8f1;  /* st.info border color */
+        border: 1px solid #bce8f1;
     }
     div.stButton > button:hover {
-        background-color: #c4e3f3;  /* Slightly darker on hover */
-        color: #245269;             /* Slightly darker text */
+        background-color: #c4e3f3;
+        color: #245269;
     }
     </style>
     """, unsafe_allow_html=True)
 
     centered_header("Data Analysis Dashboard")
 
-    # Updated query options including the new 3 analyses
     query_options = [
         "Providers & Receivers by City",
         "Top Food Provider Type by Quantity",
@@ -727,8 +770,7 @@ with tab5:
             else:
                 st.warning("No data found for the selected query.")
 
-
-# ---------------- Tab 6: Provider & Receiver Contact Info ----------------
+# ---------------- Tab 6: Contact Info ----------------
 with tab6:
     centered_header("Contact Information")
     
@@ -754,7 +796,7 @@ with tab6:
 
 # ---------------- Tab 7: User Information ----------------
 with tab7:
-    centered_header("About the Developer")  # Developer Information
+    centered_header("About the Developer")
 
     # Developer Information
     st.subheader("Developer Information")
@@ -780,4 +822,3 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
-
