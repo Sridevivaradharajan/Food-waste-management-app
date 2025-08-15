@@ -3,31 +3,20 @@ import mysql.connector
 import streamlit as st
 import plotly.express as px
 
-# ---------------- Database Connection ----------------
 def get_db_connection():
-    """Get database connection using Streamlit secrets or fallback to local"""
+    """Get database connection using Streamlit secrets"""
     try:
-        # Try to use Streamlit secrets for production
+        # This will now be the only method to connect, using the secrets file
         return mysql.connector.connect(
             host=st.secrets["mysql"]["host"],
-            user=st.secrets["mysql"]["user"], 
+            user=st.secrets["mysql"]["user"],
             password=st.secrets["mysql"]["password"],
             database=st.secrets["mysql"]["database"],
-            port=st.secrets["mysql"].get("port", 3306)
+            port=st.secrets["mysql"]["port"]
         )
-    except (KeyError, FileNotFoundError):
-        # Fallback to local development (you can remove this for production)
-        try:
-            return mysql.connector.connect(
-                host='localhost',
-                user='root',
-                password='Srisql@8',
-                database='food_wastage'
-            )
-        except mysql.connector.Error as e:
-            st.error(f"Database connection failed: {e}")
-            st.info("Please configure your database connection in Streamlit secrets.")
-            st.stop()
+    except Exception as e:
+        st.error(f"Error connecting to the database: {e}")
+        st.stop()
 
 def test_db_connection():
     """Test if database connection is working"""
@@ -822,3 +811,4 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
