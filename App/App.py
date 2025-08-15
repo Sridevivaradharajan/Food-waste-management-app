@@ -1,25 +1,11 @@
 import pandas as pd
-import streamlit as st
 import mysql.connector
+import streamlit as st
 import plotly.express as px
 
+# ---------------- Database Connection ----------------
 def get_db_connection():
-    """Get database connection using Streamlit secrets"""
-    try:
-        # This will now be the only method to connect, using the secrets file
-        return mysql.connector.connect(
-            host=st.secrets["mysql"]["host"],
-            user=st.secrets["mysql"]["user"],
-            password=st.secrets["mysql"]["password"],
-            database=st.secrets["mysql"]["database"],
-            port=st.secrets["mysql"]["port"]
-        )
-    except Exception as e:
-        st.error(f"Error connecting to the database: {e}")
-        st.stop()
-
-def test_db_connection():
-    """Test if database connection is working"""
+    """Connect to MySQL using Streamlit secrets."""
     try:
         conn = mysql.connector.connect(
             host=st.secrets["mysql"]["host"],
@@ -28,22 +14,35 @@ def test_db_connection():
             database=st.secrets["mysql"]["database"],
             port=st.secrets["mysql"]["port"]
         )
-        conn.close()
-        return True
+        return conn
     except Exception as e:
-        st.error(f"Database connection test failed: {e}")
-        return False
+        st.error(f"Database connection failed: {e}")
+        return None
 
 def run_query(query, params=None):
-    """Run a query and return a DataFrame"""
+    """Run SQL query and return DataFrame."""
+    conn = get_db_connection()
+    if conn is None:
+        return pd.DataFrame()
     try:
-        conn = get_db_connection()
         df = pd.read_sql(query, conn, params=params)
         conn.close()
         return df
     except Exception as e:
-        st.error(f"Query Error: {e}")
+        st.error(f"Query failed: {e}")
         return pd.DataFrame()
+
+# ---------------- Streamlit App ----------------
+st.title("Food Wastage Management Dashboard")
+
+# Example chart
+df = run_query("SELECT Food_Type, COUNT(*) AS count FROM Food_Listings GROUP BY Food_Type")
+if not df.empty:
+    fig = px.bar(df, x="Food_Type", y="count", title="Food Types Count")
+    st.plotly_chart(fig)
+else:
+    st.warning("No data available.")
+
 
 # ---------------- CRUD Operations ----------------
 def create_record(table_name, inputs):
@@ -814,5 +813,6 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
 
 
