@@ -165,8 +165,8 @@ def delete_record(table_name, record_id):
 def fetch_table_data(table_name):
     query = f"SELECT * FROM {table_name}"
     return run_query(query)
-
-# ---------------- Analysis Queries ----------------
+    
+#------------------ Analysis queries ---------------
 def analysis_query(option, param=None):
     """Run analysis queries and return dataframe + optional figure - Cloud Compatible Version"""
     
@@ -346,79 +346,101 @@ def analysis_query(option, param=None):
             print(f"Chart creation failed: {str(e)}")
             return None
     
-    # Simplified chart configurations for cloud compatibility
+    # Chart configurations with proper colors for cloud compatibility
     charts = {
         "Providers & Receivers by City": lambda df: safe_create_chart(
             px.bar, df,
             x='City', y=['Providers_Count','Receivers_Count'], 
             barmode='group', 
             title="Providers and Receivers by City",
+            color_discrete_sequence=['#FF6B6B', '#4ECDC4'],
             required_columns=['City', 'Providers_Count', 'Receivers_Count']
         ),
         "Top Food Provider Type by Quantity": lambda df: safe_create_chart(
             px.bar, df,
             x='Type', y='Total_Quantity', 
             title="Food Provider Types by Quantity",
+            color='Type',
+            color_discrete_sequence=['#FF9F43', '#10AC84', '#EE5A24', '#0652DD', '#9C88FF'],
             required_columns=['Type', 'Total_Quantity']
         ),
         "Top Receivers by Claimed Food": lambda df: safe_create_chart(
             px.bar, df.head(10),  # Limit for performance
             x='Name', y='Total_Claimed', 
             title="Top Receivers by Claimed Food",
+            color='Name',
+            color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43'],
             required_columns=['Name', 'Total_Claimed']
         ),
         "Top Food Types Available": lambda df: safe_create_chart(
             px.bar, df,
             x='Food_Type', y='Count', 
             title="Top Food Types Available",
+            color='Food_Type',
+            color_discrete_sequence=['#A8E6CF', '#FFD93D', '#FF6B6B', '#4ECDC4', '#45B7D1'],
             required_columns=['Food_Type', 'Count']
         ),
         "Avg Quantity Claimed per Receiver": lambda df: safe_create_chart(
             px.bar, df.head(15),  # Limit for readability
             x='Name', y='Avg_Quantity_Claimed',
             title="Average Quantity Claimed per Receiver",
+            color='Name',
+            color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43', '#0652DD', '#9C88FF', '#EE5A24', '#10AC84', '#FF7675'],
             required_columns=['Name', 'Avg_Quantity_Claimed']
         ),
         "Claims Status Percentage": lambda df: safe_create_chart(
             px.pie, df,
             names='Status', values='Percentage', 
             title="Claims Status Distribution",
+            color_discrete_sequence=['#00B894', '#FDCB6E', '#E17055', '#74B9FF'],
             required_columns=['Status', 'Percentage']
         ),
         "Claims Count per Food Item": lambda df: safe_create_chart(
             px.bar, df.head(20),  # Limit for performance
             x='Food_Name', y='Claims_Count',
             title="Claims Count per Food Item",
+            color='Food_Name',
+            color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43', '#0652DD', '#9C88FF', '#EE5A24', '#10AC84', '#FF7675', '#A8E6CF', '#FFD93D', '#DDA0DD', '#98D8C8', '#F7DC6F'],
             required_columns=['Food_Name', 'Claims_Count']
         ),
         "Most Claimed Meal Type": lambda df: safe_create_chart(
             px.bar, df,
             x='Meal_Type', y='Claims_Count', 
             title="Most Claimed Meal Types",
+            color='Meal_Type',
+            color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57'],
             required_columns=['Meal_Type', 'Claims_Count']
         ),
         "Total Food Donated by Provider": lambda df: safe_create_chart(
             px.bar, df.head(15),  # Limit for performance
             x='Name', y='Total_Quantity_Donated', 
             title="Total Food Donated by Provider",
+            color='Name',
+            color_discrete_sequence=['#E74C3C', '#3498DB', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C', '#E67E22', '#34495E', '#16A085', '#27AE60', '#2980B9', '#8E44AD', '#F1C40F', '#E74C3C', '#95A5A6'],
             required_columns=['Name', 'Total_Quantity_Donated']
         ),
         "Top Cities by Claimed Food Quantity": lambda df: safe_create_chart(
             px.bar, df,
             x='City', y='Total_Claimed', 
             title="Top Cities by Claimed Food Quantity",
+            color='City',
+            color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57'],
             required_columns=['City', 'Total_Claimed']
         ),
         "Providers with Most Food Listings": lambda df: safe_create_chart(
             px.bar, df,
             x='Name', y='Listings_Count', 
             title="Providers with Most Food Listings",
+            color='Name',
+            color_discrete_sequence=['#FF9F43', '#10AC84', '#EE5A24', '#0652DD', '#9C88FF'],
             required_columns=['Name', 'Listings_Count']
         ),
         "Expired or Soon-to-Expire Food Items": lambda df: safe_create_chart(
             px.bar, df.head(20),  # Limit for performance
             x='Food_Name', y='Quantity', 
             title="Expired or Soon-to-Expire Food Items",
+            color='Food_Name',
+            color_discrete_sequence=['#FF4757', '#FF6348', '#FF7675', '#FD79A8', '#FDCB6E', '#F39C12', '#E17055', '#D63031', '#E84393', '#A29BFE', '#6C5CE7', '#74B9FF', '#0984E3', '#00B894', '#00CEC9', '#55A3FF', '#26DE81', '#FD79A8', '#FF9FF3', '#FF6B9D'],
             required_columns=['Food_Name', 'Quantity']
         )
     }
@@ -460,6 +482,38 @@ def analysis_query(option, param=None):
         traceback.print_exc()
         return None, None
 
+
+# Additional helper function for cloud environments
+def check_environment():
+    """Check what libraries are available in the current environment"""
+    libraries = {
+        'plotly': False,
+        'pandas': False,
+        'numpy': False
+    }
+    
+    try:
+        import plotly
+        libraries['plotly'] = True
+        print(f"✓ Plotly version: {plotly.__version__}")
+    except ImportError:
+        print("✗ Plotly not available")
+    
+    try:
+        import pandas
+        libraries['pandas'] = True
+        print(f"✓ Pandas version: {pandas.__version__}")
+    except ImportError:
+        print("✗ Pandas not available")
+    
+    try:
+        import numpy
+        libraries['numpy'] = True
+        print(f"✓ Numpy version: {numpy.__version__}")
+    except ImportError:
+        print("✗ Numpy not available")
+    
+    return libraries
 
 # Additional helper function for cloud environments
 def check_environment():
@@ -942,6 +996,7 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
 
 
 
