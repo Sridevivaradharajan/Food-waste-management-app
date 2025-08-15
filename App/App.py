@@ -167,9 +167,19 @@ def fetch_table_data(table_name):
     return run_query(query)
 
 # ---------------- Analysis Queries ----------------
-# ---------------- Analysis Queries ----------------
 def analysis_query(option, param=None):
-    """Run analysis queries and return dataframe + optional figure"""
+    """Run analysis queries and return dataframe + optional figure - Cloud Compatible Version"""
+    
+    # Import with error handling for cloud environments
+    try:
+        import plotly.express as px
+        import plotly.graph_objects as go
+        import pandas as pd
+        PLOTLY_AVAILABLE = True
+    except ImportError as e:
+        print(f"Plotly not available: {e}")
+        PLOTLY_AVAILABLE = False
+    
     queries = {
         "Providers & Receivers by City": """
             SELECT City,
@@ -196,7 +206,7 @@ def analysis_query(option, param=None):
             FROM Receivers r
             JOIN Claims c ON r.Receiver_ID=c.Receiver_ID
             JOIN Food_Listings f ON c.Food_ID=f.Food_ID
-            GROUP BY r.Receiver_ID
+            GROUP BY r.Receiver_ID, r.Name, r.Contact
             ORDER BY Total_Claimed DESC
             LIMIT 10;
         """,
@@ -220,7 +230,8 @@ def analysis_query(option, param=None):
             SELECT f.Food_Name, COUNT(*) AS Claims_Count
             FROM Food_Listings f
             JOIN Claims c ON f.Food_ID = c.Food_ID
-            GROUP BY f.Food_ID;
+            GROUP BY f.Food_ID, f.Food_Name
+            ORDER BY Claims_Count DESC;
         """,
         "Top Provider by Successful Claims": """
             SELECT p.Name, COUNT(*) AS Successful_Claims
@@ -228,23 +239,24 @@ def analysis_query(option, param=None):
             JOIN Food_Listings f ON p.Provider_ID = f.Provider_ID
             JOIN Claims c ON f.Food_ID = c.Food_ID
             WHERE c.Status = 'Completed'
-            GROUP BY p.Provider_ID
+            GROUP BY p.Provider_ID, p.Name
             ORDER BY Successful_Claims DESC
             LIMIT 1;
         """,
         "Claims Status Percentage": """
             SELECT Status, 
                    COUNT(*) AS Count,
-                   ROUND(100 * COUNT(*) / (SELECT COUNT(*) FROM Claims), 2) AS Percentage
+                   ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM Claims), 2) AS Percentage
             FROM Claims
             GROUP BY Status;
         """,
         "Avg Quantity Claimed per Receiver": """
-            SELECT r.Name, AVG(f.Quantity) AS Avg_Quantity_Claimed
+            SELECT r.Name, AVG(CAST(f.Quantity AS FLOAT)) AS Avg_Quantity_Claimed
             FROM Receivers r
             JOIN Claims c ON r.Receiver_ID = c.Receiver_ID
             JOIN Food_Listings f ON c.Food_ID = f.Food_ID
-            GROUP BY r.Receiver_ID;
+            GROUP BY r.Receiver_ID, r.Name
+            ORDER BY Avg_Quantity_Claimed DESC;
         """,
         "Most Claimed Meal Type": """
             SELECT f.Meal_Type, COUNT(*) AS Claims_Count
@@ -257,10 +269,9 @@ def analysis_query(option, param=None):
             SELECT p.Name, SUM(f.Quantity) AS Total_Quantity_Donated
             FROM Providers p
             JOIN Food_Listings f ON p.Provider_ID = f.Provider_ID
-            GROUP BY p.Provider_ID
+            GROUP BY p.Provider_ID, p.Name
             ORDER BY Total_Quantity_Donated DESC;
         """,
-        # ----------------- New Queries -----------------
         "Top Cities by Claimed Food Quantity": """
             SELECT p.City, SUM(f.Quantity) AS Total_Claimed
             FROM Providers p
@@ -275,101 +286,212 @@ def analysis_query(option, param=None):
             SELECT p.Name, COUNT(f.Food_ID) AS Listings_Count
             FROM Providers p
             JOIN Food_Listings f ON p.Provider_ID = f.Provider_ID
-            GROUP BY p.Provider_ID
+            GROUP BY p.Provider_ID, p.Name
             ORDER BY Listings_Count DESC
             LIMIT 5;
         """,
         "Expired or Soon-to-Expire Food Items": """
             SELECT Food_Name, Quantity, Expiry_Date, Location
             FROM Food_Listings
-            WHERE Expiry_Date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
+            WHERE Expiry_Date <= DATE_ADD(CURRENT_DATE, INTERVAL 2 DAY)
             ORDER BY Expiry_Date ASC;
         """
     }
     
-    # Charts configuration
+    def safe_create_chart(chart_func, df, **kwargs):
+        """Safely create charts with comprehensive error handling for cloud environments"""
+        if not PLOTLY_AVAILABLE:
+            print("Plotly not available in this environment - charts disabled")
+            return None
+            
+        try:
+            if df is None or df.empty:
+                print("No data available for chart creation")
+                return None
+            
+            # Validate required columns
+            required_cols = kwargs.pop('required_columns', [])
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            if missing_cols:
+                print(f"Missing required columns: {missing_cols}")
+                return None
+            
+            # Clean data for cloud compatibility
+            df_clean = df.copy()
+            
+            # Handle NaN values
+            df_clean = df_clean.fillna(0)
+            
+            # Ensure string columns for categorical data
+            for col in df_clean.columns:
+                if df_clean[col].dtype == 'object':
+                    df_clean[col] = df_clean[col].astype(str)
+            
+            # Create chart with timeout protection
+            fig = chart_func(df_clean, **kwargs)
+            
+            # Cloud-friendly configuration
+            if fig:
+                fig.update_layout(
+                    font_family="Arial, sans-serif",
+                    title_font_size=16,
+                    showlegend=True,
+                    height=400,
+                    margin=dict(l=40, r=40, t=60, b=40)
+                )
+                
+            return fig
+            
+        except Exception as e:
+            print(f"Chart creation failed: {str(e)}")
+            return None
+    
+    # Simplified chart configurations for cloud compatibility
     charts = {
-    "Providers & Receivers by City": lambda df: px.bar(
-        df, x='City', y=['Providers_Count','Receivers_Count'], 
-        barmode='group', 
-        title="Number of Providers and Receivers by City",
-        color_discrete_sequence=px.colors.qualitative.Pastel  # Multiple pastel colors
-    ),
-    "Top Food Provider Type by Quantity": lambda df: px.bar(
-        df, x='Type', y='Total_Quantity', 
-        title="Top Food Provider Types by Quantity",
-        color='Type',  # Assign color per category
-        color_discrete_sequence=px.colors.qualitative.Set2
-    ),
-    "Top Receivers by Claimed Food": lambda df: px.bar(
-        df, x='Name', y='Total_Claimed', 
-        title="Top Receivers by Claimed Food",
-        color='Name',
-        color_discrete_sequence=px.colors.qualitative.Vivid
-    ),
-    "Top Food Types Available": lambda df: px.bar(
-        df, x='Food_Type', y='Count', 
-        title="Top Food Types Available",
-        color='Food_Type',
-        color_discrete_sequence=px.colors.qualitative.Pastel1
-    ),
-    "Avg Quantity Claimed per Receiver": lambda df: px.bar(
-        df, x='Name', y='Avg_Quantity_Claimed',
-        title="Average Quantity Claimed per Receiver",
-        color='Name',
-        color_discrete_sequence=px.colors.qualitative.Pastel
-    ),
-    "Claims Status Percentage": lambda df: px.pie(
-        df, names='Status', values='Percentage', 
-        title="Claims Status Percentage",
-        color='Status',
-        color_discrete_sequence=px.colors.sequential.RdBu
-    ),
-     "Claims Count per Food Item": lambda df: px.bar(
-        df, x='Food_Name', y='Claims_Count',
-        title="Claims Count per Food Item",
-        color='Food_Name',
-        color_discrete_sequence=px.colors.qualitative.Set3
-    ),
-    "Most Claimed Meal Type": lambda df: px.bar(
-        df, x='Meal_Type', y='Claims_Count', 
-        title="Most Claimed Meal Type",
-        color='Meal_Type',
-        color_discrete_sequence=px.colors.qualitative.Dark24
-    ),
-    "Total Food Donated by Provider": lambda df: px.bar(
-        df, x='Name', y='Total_Quantity_Donated', 
-        title="Total Food Donated by Provider",
-        color='Name',
-        color_discrete_sequence=px.colors.qualitative.Bold
-    ),
-    "Top Cities by Claimed Food Quantity": lambda df: px.bar(
-        df, x='City', y='Total_Claimed', 
-        title="Top Cities by Claimed Food Quantity",
-        color='City',
-        color_discrete_sequence=px.colors.qualitative.Prism
-    ),
-    "Providers with Most Food Listings": lambda df: px.bar(
-        df, x='Name', y='Listings_Count', 
-        title="Providers with Most Food Listings",
-        color='Name',
-        color_discrete_sequence=px.colors.qualitative.Set3
-    ),
-    "Expired or Soon-to-Expire Food Items": lambda df: px.bar(
-        df, x='Food_Name', y='Quantity', 
-        title="Expired or Soon-to-Expire Food Items",
-        color='Food_Name',
-        color_discrete_sequence=px.colors.sequential.Agsunset
-    )
-}
+        "Providers & Receivers by City": lambda df: safe_create_chart(
+            px.bar, df,
+            x='City', y=['Providers_Count','Receivers_Count'], 
+            barmode='group', 
+            title="Providers and Receivers by City",
+            required_columns=['City', 'Providers_Count', 'Receivers_Count']
+        ),
+        "Top Food Provider Type by Quantity": lambda df: safe_create_chart(
+            px.bar, df,
+            x='Type', y='Total_Quantity', 
+            title="Food Provider Types by Quantity",
+            required_columns=['Type', 'Total_Quantity']
+        ),
+        "Top Receivers by Claimed Food": lambda df: safe_create_chart(
+            px.bar, df.head(10),  # Limit for performance
+            x='Name', y='Total_Claimed', 
+            title="Top Receivers by Claimed Food",
+            required_columns=['Name', 'Total_Claimed']
+        ),
+        "Top Food Types Available": lambda df: safe_create_chart(
+            px.bar, df,
+            x='Food_Type', y='Count', 
+            title="Top Food Types Available",
+            required_columns=['Food_Type', 'Count']
+        ),
+        "Avg Quantity Claimed per Receiver": lambda df: safe_create_chart(
+            px.bar, df.head(15),  # Limit for readability
+            x='Name', y='Avg_Quantity_Claimed',
+            title="Average Quantity Claimed per Receiver",
+            required_columns=['Name', 'Avg_Quantity_Claimed']
+        ),
+        "Claims Status Percentage": lambda df: safe_create_chart(
+            px.pie, df,
+            names='Status', values='Percentage', 
+            title="Claims Status Distribution",
+            required_columns=['Status', 'Percentage']
+        ),
+        "Claims Count per Food Item": lambda df: safe_create_chart(
+            px.bar, df.head(20),  # Limit for performance
+            x='Food_Name', y='Claims_Count',
+            title="Claims Count per Food Item",
+            required_columns=['Food_Name', 'Claims_Count']
+        ),
+        "Most Claimed Meal Type": lambda df: safe_create_chart(
+            px.bar, df,
+            x='Meal_Type', y='Claims_Count', 
+            title="Most Claimed Meal Types",
+            required_columns=['Meal_Type', 'Claims_Count']
+        ),
+        "Total Food Donated by Provider": lambda df: safe_create_chart(
+            px.bar, df.head(15),  # Limit for performance
+            x='Name', y='Total_Quantity_Donated', 
+            title="Total Food Donated by Provider",
+            required_columns=['Name', 'Total_Quantity_Donated']
+        ),
+        "Top Cities by Claimed Food Quantity": lambda df: safe_create_chart(
+            px.bar, df,
+            x='City', y='Total_Claimed', 
+            title="Top Cities by Claimed Food Quantity",
+            required_columns=['City', 'Total_Claimed']
+        ),
+        "Providers with Most Food Listings": lambda df: safe_create_chart(
+            px.bar, df,
+            x='Name', y='Listings_Count', 
+            title="Providers with Most Food Listings",
+            required_columns=['Name', 'Listings_Count']
+        ),
+        "Expired or Soon-to-Expire Food Items": lambda df: safe_create_chart(
+            px.bar, df.head(20),  # Limit for performance
+            x='Food_Name', y='Quantity', 
+            title="Expired or Soon-to-Expire Food Items",
+            required_columns=['Food_Name', 'Quantity']
+        )
+    }
     
-    if option in queries:
+    # Execute query with error handling
+    if option not in queries:
+        print(f"Query option '{option}' not found")
+        return None, None
+    
+    try:
+        # Execute the query
         df = run_query(queries[option], params=(param,) if param else None)
-        fig = charts[option](df) if option in charts and not df.empty else None
+        
+        if df is None:
+            print(f"Query returned None for option: {option}")
+            return None, None
+            
+        print(f"Query '{option}' executed successfully")
+        print(f"Returned {len(df)} rows with columns: {list(df.columns)}")
+        
+        # Create chart if configuration exists
+        fig = None
+        if option in charts and not df.empty:
+            print(f"Creating chart for: {option}")
+            fig = charts[option](df)
+            if fig is None:
+                print("Chart creation returned None")
+        else:
+            if df.empty:
+                print("DataFrame is empty - no chart created")
+            else:
+                print("No chart configuration available for this query")
+        
         return df, fig
+        
+    except Exception as e:
+        print(f"Error in analysis_query for '{option}': {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None, None
 
-    return None, None
+
+# Additional helper function for cloud environments
+def check_environment():
+    """Check what libraries are available in the current environment"""
+    libraries = {
+        'plotly': False,
+        'pandas': False,
+        'numpy': False
+    }
     
+    try:
+        import plotly
+        libraries['plotly'] = True
+        print(f"✓ Plotly version: {plotly.__version__}")
+    except ImportError:
+        print("✗ Plotly not available")
+    
+    try:
+        import pandas
+        libraries['pandas'] = True
+        print(f"✓ Pandas version: {pandas.__version__}")
+    except ImportError:
+        print("✗ Pandas not available")
+    
+    try:
+        import numpy
+        libraries['numpy'] = True
+        print(f"✓ Numpy version: {numpy.__version__}")
+    except ImportError:
+        print("✗ Numpy not available")
+    
+    return libraries
 # ---------------- Streamlit UI ----------------
 st.set_page_config(page_title="Food Wastage Management System", layout="wide")
 
