@@ -958,7 +958,7 @@ with tab6:
         if entity == "Provider":
             query = "SELECT Name, Contact, Address FROM Providers WHERE Provider_ID = %s"
         else:
-            query = "SELECT Name, Contact, Address FROM Receivers WHERE Receiver_ID = %s"
+            query = "SELECT Name, Type, City FROM Receivers WHERE Receiver_ID = %s"
         
         df = run_query(query, params=(entity_id,))
         
@@ -996,6 +996,7 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
 
 
 
