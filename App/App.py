@@ -48,12 +48,6 @@ def run_query(query, params=None):
     finally:
         conn.close()
 
-# Example usage in Streamlit
-if test_db_connection():
-    st.success("Database connection successful!")
-else:
-    st.error("Database connection failed.")
-
 
 # ---------------- CRUD Operations ----------------
 def create_record(table_name, inputs):
@@ -824,6 +818,7 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
 
 
 
