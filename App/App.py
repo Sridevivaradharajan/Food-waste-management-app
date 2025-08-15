@@ -672,7 +672,7 @@ with tab1:
     
     with col2:
         st.info("**CRUD Operations**\n\nComplete Create, Read, Update, and Delete functionality for all records.")
-        st.warning("**Contact Management**\n\nEasy access to provider and receiver contact details for direct coordination.")
+        st.warning("**Contact Management**\n\nThe platform provides easy access to the contact details of both providers and receivers, enabling direct coordination without the need for intermediaries.")
 
 # ---------------- Tab 2: View Table & Filtering ----------------
 with tab2:
@@ -996,6 +996,7 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
 
 
 
