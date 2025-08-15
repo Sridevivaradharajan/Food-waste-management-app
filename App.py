@@ -1,6 +1,6 @@
 import pandas as pd
-import mysql.connector
 import streamlit as st
+import mysql.connector
 import plotly.express as px
 
 def get_db_connection():
@@ -21,10 +21,13 @@ def get_db_connection():
 def test_db_connection():
     """Test if database connection is working"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")
-        cursor.close()
+        conn = mysql.connector.connect(
+            host=st.secrets["mysql"]["host"],
+            user=st.secrets["mysql"]["user"],
+            password=st.secrets["mysql"]["password"],
+            database=st.secrets["mysql"]["database"],
+            port=st.secrets["mysql"]["port"]
+        )
         conn.close()
         return True
     except Exception as e:
@@ -811,4 +814,5 @@ with tab7:
 
     with tech_cols[2]:
         st.warning("**Features**\n- Filtering\n- CRUD Operations \n- SQL playground and Data Analysis")
+
 
